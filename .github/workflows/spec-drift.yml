@@ -1,0 +1,33 @@
+name: spec-drift
+on:
+  schedule:
+    - cron: "0 15 * * 1" # Mondays 15:00 UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check pinned spec snapshot against live docs
+        id: drift
+        run: |
+          python3 scripts/check_spec_freshness.py | tee drift.log
+        continue-on-error: true
+      - name: Open issue on drift
+        if: steps.drift.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh issue list --label spec-drift --state open --json number --jq length | grep -qv '^0$'; then
+            echo "open spec-drift issue already exists; skipping"
+            exit 0
+          fi
+          gh issue create \
+            --title "Spec drift: frontmatter snapshot needs review" \
+            --label spec-drift \
+            --body "$(printf 'The weekly check found drift between references/claude-code-frontmatter.md and https://code.claude.com/docs/en/skills.\n\n```\n%s\n```\n\nUpdate the snapshot via a reviewed PR (bump the **Snapshot:** date).' "$(cat drift.log)")"

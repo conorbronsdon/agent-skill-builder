@@ -1,0 +1,13 @@
+name: test
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate bundled skills
+        run: python3 scripts/validate_skill.py . examples/minimal examples/tool-using
