@@ -2,6 +2,11 @@
 
 A skill that builds agent skills — and doesn't rot.
 
+<p align="center">
+  <img src="docs/demo.gif" width="820"
+       alt="Terminal demo: validate_skill.py prints PASS with warnings for two example skills (exit 0), then FAIL for a deliberately broken skill — an ERROR for a broken relative link plus a warning for an unscoped Bash grant — and exits 1." />
+</p>
+
 Most skill generators fail the same three ways: they don't know the current frontmatter spec (`arguments`, `argument-hint`), they never suggest `disable-model-invocation`, and they write bloated descriptions that tax every session's context. This one treats those as the design decisions, and it's built to stay current: the spec knowledge lives in a pinned, dated snapshot that CI re-checks against the live docs weekly.
 
 ## What it does
