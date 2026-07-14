@@ -104,23 +104,17 @@ def validate(skill_dir):
 
     # --- name format: nudge toward the command-name convention ---
     # The directory name IS the command. Lowercase alphanumerics joined by single
-    # hyphens is the convention; capitals/underscores still produce a working
-    # command, just an unconventional one, so this is a warning, not an error.
-    # A space is the one case that actually breaks invocation — flagged louder.
+    # hyphens is the convention. This only nudges — a non-conforming name still
+    # produces a command (and if it doesn't, e.g. a space, the author finds out
+    # the moment they invoke it), so it's a warning, never a build-failing error.
     NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
     for label, value in (("directory name", d.name), ("frontmatter name", name)):
         if value and not NAME_RE.match(value):
-            if " " in value:
-                errors.append(
-                    f"{label} `{value}` contains a space — the command won't invoke "
-                    "as one token; use lowercase-hyphenated (e.g. `deploy-staging`)"
-                )
-            else:
-                warnings.append(
-                    f"{label} `{value}` is unconventional — the norm is lowercase "
-                    "alphanumerics and single hyphens (e.g. `deploy-staging`); "
-                    "capitals/underscores work but read oddly as a `/command`"
-                )
+            warnings.append(
+                f"{label} `{value}` isn't lowercase-hyphenated (the `/command` "
+                "convention, e.g. `deploy-staging`); a space in particular won't "
+                "invoke as one token"
+            )
 
     # --- arguments ---
     uses_args = bool(re.search(r"\$ARGUMENTS|\$\d|\$[a-z_]+\b(?=.*arguments:)", body))
