@@ -102,6 +102,19 @@ def validate(skill_dir):
             "command; `name` is only a display label (fine if intentional)"
         )
 
+    # --- name format: the command must be typeable after a slash ---
+    # Lowercase alphanumerics joined by single hyphens; no leading/trailing/double
+    # hyphen, no spaces or underscores. The directory name IS the command, so it's
+    # the one that must be clean; the frontmatter name is checked too when present.
+    NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+    for label, value in (("directory name", d.name), ("frontmatter name", name)):
+        if value and not NAME_RE.match(value):
+            errors.append(
+                f"{label} `{value}` is not a valid command name — use lowercase "
+                "alphanumerics and single hyphens (e.g. `deploy-staging`), no spaces, "
+                "underscores, capitals, or leading/trailing/double hyphens"
+            )
+
     # --- arguments ---
     uses_args = bool(re.search(r"\$ARGUMENTS|\$\d|\$[a-z_]+\b(?=.*arguments:)", body))
     if "$ARGUMENTS" in body and "argument-hint" not in fm:

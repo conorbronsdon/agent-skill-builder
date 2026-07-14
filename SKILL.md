@@ -81,9 +81,11 @@ Run the bundled validator against the generated skill directory:
 python3 ${CLAUDE_SKILL_DIR}/scripts/validate_skill.py <path-to-skill-dir>
 ```
 
-It machine-checks what the checklist above describes: frontmatter parses, unknown keys, description budget, `$ARGUMENTS`/`argument-hint` pairing, unscoped `Bash` grants, side-effect commands on model-invocable skills, broken relative links, missing referenced files, body length. Report its output verbatim (PASS/FAIL plus warnings) as part of your deliverable. If Python isn't available, walk the checklist manually and say so.
+It machine-checks what the checklist above describes: frontmatter parses, unknown keys, name format (lowercase-hyphenated), description budget, `$ARGUMENTS`/`argument-hint` pairing, unscoped `Bash` grants, side-effect commands on model-invocable skills, broken relative links, missing referenced files, body length. Report its output verbatim (PASS/FAIL plus warnings) as part of your deliverable. If Python isn't available, walk the checklist manually and say so.
 
 ### 5. Install it
+
+**Before writing anything, check the target path is clear.** If `<install-dir>/<skill-name>/SKILL.md` already exists, stop and show the user the existing file — a skill with that name is already installed. Confirm an overwrite or pick a different name; never clobber an existing SKILL.md silently. (`review` mode is the right tool for improving one that already exists.)
 
 For Claude Code: `.claude/skills/<skill-name>/SKILL.md` is the whole installation — the directory name becomes the command, supporting files live alongside, and changes hot-reload within a session. No routing stub or registry edit is needed. (`.claude/commands/` files still work, but they're the legacy form — that's what `migrate` mode is for.)
 

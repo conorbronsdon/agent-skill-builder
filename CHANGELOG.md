@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+Mechanical guardrails from a second round of Ed Harrod's feedback:
+
+- `validate_skill.py` now errors on a malformed command name (directory name and frontmatter `name` must be lowercase-hyphenated — no spaces, underscores, capitals, or leading/trailing/double hyphens).
+- SKILL.md step 5 gains a pre-write guard: check the target path is clear and confirm before overwriting an existing `SKILL.md`, never clobber silently (`review` mode is for improving one that exists).
+
 ## 0.1.0 — 2026-07-13
 
 Initial extraction from [claude-code-skills](https://github.com/conorbronsdon/claude-code-skills)' `skill-creator`, hardened per review feedback (Ed Harrod's LinkedIn critique of stale skill generators + a GPT 5.6 architecture review):
