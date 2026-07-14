@@ -102,19 +102,9 @@ def validate(skill_dir):
             "command; `name` is only a display label (fine if intentional)"
         )
 
-    # --- name format: nudge toward the command-name convention ---
-    # The directory name IS the command. Lowercase alphanumerics joined by single
-    # hyphens is the convention. This only nudges — a non-conforming name still
-    # produces a command (and if it doesn't, e.g. a space, the author finds out
-    # the moment they invoke it), so it's a warning, never a build-failing error.
-    NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
-    for label, value in (("directory name", d.name), ("frontmatter name", name)):
-        if value and not NAME_RE.match(value):
-            warnings.append(
-                f"{label} `{value}` isn't lowercase-hyphenated (the `/command` "
-                "convention, e.g. `deploy-staging`); a space in particular won't "
-                "invoke as one token"
-            )
+    # No name-format check on purpose: any directory name resolves to a working
+    # command, so spelling/casing is cosmetic, not a defect. The validator flags
+    # things that actually break or mislead, not style.
 
     # --- arguments ---
     uses_args = bool(re.search(r"\$ARGUMENTS|\$\d|\$[a-z_]+\b(?=.*arguments:)", body))

@@ -81,7 +81,7 @@ Run the bundled validator against the generated skill directory:
 python3 ${CLAUDE_SKILL_DIR}/scripts/validate_skill.py <path-to-skill-dir>
 ```
 
-It machine-checks what the checklist above describes: frontmatter parses, unknown keys, name format (lowercase-hyphenated), description budget, `$ARGUMENTS`/`argument-hint` pairing, unscoped `Bash` grants, side-effect commands on model-invocable skills, broken relative links, missing referenced files, body length. Report its output verbatim (PASS/FAIL plus warnings) as part of your deliverable. If Python isn't available, walk the checklist manually and say so.
+It machine-checks what the checklist above describes: frontmatter parses, unknown keys, description budget, `$ARGUMENTS`/`argument-hint` pairing, unscoped `Bash` grants, side-effect commands on model-invocable skills, broken relative links, missing referenced files, body length. Report its output verbatim (PASS/FAIL plus warnings) as part of your deliverable. If Python isn't available, walk the checklist manually and say so.
 
 ### 5. Install it
 
