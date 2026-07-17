@@ -56,6 +56,10 @@ It checks: frontmatter parses, unknown keys, description budget (~250 target, 1,
 - [claude-code-skills](https://github.com/conorbronsdon/claude-code-skills) — my collection of production skills; this repo is the extracted, hardened home of its `skill-creator`, and the collection's copy tracks this one.
 - Anthropic's official [`skill-creator` plugin](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator) evaluates skill *output quality* (evals, benchmarks, description tuning). This repo designs and validates skill *structure*. They compose — build here, then eval there.
 
+## Author
+
+Authored by [Conor Bronsdon](https://github.com/conorbronsdon) · [LinkedIn](https://www.linkedin.com/in/conorbronsdon/) · [Chain of Thought podcast](https://chainofthought.show)
+
 ## License
 
 MIT
