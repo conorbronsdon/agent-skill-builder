@@ -60,6 +60,11 @@ It checks: frontmatter parses, unknown keys, description budget (~250 target, 1,
 
 Authored by [Conor Bronsdon](https://github.com/conorbronsdon) · [LinkedIn](https://www.linkedin.com/in/conorbronsdon/) · [Chain of Thought podcast](https://chainofthought.show)
 
+
+## Disclaimer
+
+*This is an independent personal project, not affiliated with, sponsored by, or endorsed by any company. All views expressed are my own.*
+
 ## License
 
 MIT
