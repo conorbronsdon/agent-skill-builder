@@ -23,11 +23,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          gh label create spec-drift --color D93F0B --description "Upstream skill specification changed or could not be verified" --force
           if gh issue list --label spec-drift --state open --json number --jq length | grep -qv '^0$'; then
             echo "open spec-drift issue already exists; skipping"
             exit 0
           fi
           gh issue create \
-            --title "Spec drift: frontmatter snapshot needs review" \
+            --title "Spec check: frontmatter snapshot needs review" \
             --label spec-drift \
-            --body "$(printf 'The weekly check found drift between references/claude-code-frontmatter.md and https://code.claude.com/docs/en/skills.\n\n```\n%s\n```\n\nUpdate the snapshot via a reviewed PR (bump the **Snapshot:** date).' "$(cat drift.log)")"
+            --body "$(printf 'The weekly check found drift, staleness, or an unavailable upstream source while checking references/claude-code-frontmatter.md against https://code.claude.com/docs/en/skills.\n\n```\n%s\n```\n\nReview the cause. Update the snapshot date only after re-verifying field semantics, limits, and lifecycle behavior.' "$(cat drift.log)")"

@@ -2,7 +2,7 @@
 
 # agent-skill-builder
 
-A skill that builds agent skills — and doesn't rot. Spec-current frontmatter plus a validator that fails on drift.
+A Claude Code-first skill builder with portable Agent Skills validation and drift detection that can fail.
 
 [![GitHub stars](https://img.shields.io/github/stars/conorbronsdon/agent-skill-builder?style=social)](https://github.com/conorbronsdon/agent-skill-builder/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
@@ -10,28 +10,30 @@ A skill that builds agent skills — and doesn't rot. Spec-current frontmatter p
 [![X](https://img.shields.io/badge/X-@ConorBronsdon-black?style=flat-square&logo=x)](https://x.com/ConorBronsdon)
 
 <img src="docs/demo.gif" width="820"
-     alt="Terminal demo: validate_skill.py prints PASS with warnings for two example skills (exit 0), then FAIL for a deliberately broken skill — an ERROR for a broken relative link plus a warning for an unscoped Bash grant — and exits 1." />
+     alt="Terminal demo showing the validator pass valid skills and fail a deliberately broken one." />
 
 </div>
 
 ---
 
-Most skill generators fail the same three ways: they don't know the current frontmatter spec (`arguments`, `argument-hint`), they never suggest `disable-model-invocation`, and they write bloated descriptions that tax every session's context. This one treats those as the design decisions, and it's built to stay current: the spec knowledge lives in a pinned, dated snapshot that CI re-checks against the live docs weekly.
+Skill generators age fast. Frontmatter changes, runtime-specific fields leak into portable skills, and structural validators pass because nobody tested whether they can fail.
+
+`agent-skill-builder` handles those as explicit design decisions. It builds Claude Code skills by default, can target the portable [Agent Skills](https://agentskills.io) core, validates each runtime separately, and checks the live Claude Code field set every week.
 
 ## What it does
 
-Describe the skill you want in plain language. It walks the decisions that separate a good skill from a prompt pasted into a folder:
+Describe the skill you want in plain language. The builder decides:
 
-- **Invocation control** — who triggers it? User-only workflows get `disable-model-invocation: true` (which also costs zero ambient context). Background knowledge gets `user-invocable: false`. Both-ways skills must earn their permanent description cost.
-- **Arguments** — `argument-hint` plus `$ARGUMENTS`/`$N`/named args, wired into the body.
-- **Context budget** — triggers in the description (~250 chars), detail in the body, which loads only on invocation.
-- **Tool grants, execution context, dynamic injection** — `allowed-tools` scoped tight (it's a pre-approval grant, not a sandbox), `context: fork` for isolated tasks, `` !`command` `` for live data.
+- **Runtime**: Claude Code extensions or the portable Agent Skills core.
+- **Skill shape**: reference, bounded task, or tool-backed workflow.
+- **Invocation control**: user-only, model-only, or discoverable both ways.
+- **Arguments**: `$ARGUMENTS`, positional `$N`, or named arguments wired into the body.
+- **Context budget**: trigger language in the description, conditional detail in references.
+- **Execution safety**: scoped tool grants, explicit mutation gates, and read-only dynamic injection.
 
-Then it validates the result mechanically and tells you how to test it in a fresh session.
+Three modes cover the lifecycle:
 
-Three modes:
-
-```
+```text
 /agent-skill-builder new <description of the skill you want>
 /agent-skill-builder review path/to/SKILL.md
 /agent-skill-builder migrate path/to/legacy-command.md
@@ -44,31 +46,53 @@ mkdir -p your-project/.claude/skills
 cp -r agent-skill-builder your-project/.claude/skills/agent-skill-builder
 ```
 
-That's the whole installation for Claude Code — the directory name becomes the command. Use `~/.claude/skills/` to make it available across all your projects. The core follows the [Agent Skills](https://agentskills.io) standard, so other compatible tools can load it too.
+Use `~/.claude/skills/` instead to make it available across projects. The builder itself uses Claude Code extensions; skills it generates in portable mode stay within the Agent Skills core.
 
-## The validator
+## Runtime-aware validation
 
-`scripts/validate_skill.py` turns the quality checklist into machine checks — run it against any skill directory:
+The validator has two profiles:
 
 ```bash
-python3 scripts/validate_skill.py path/to/skill-dir
+python3 scripts/validate_skill.py --profile claude-code path/to/skill-dir
+python3 scripts/validate_skill.py --profile agentskills path/to/skill-dir
 ```
 
-It checks: frontmatter parses, unknown keys, description budget (~250 target, 1,536 listing cap), `$ARGUMENTS`/`argument-hint` pairing, unscoped `Bash` grants, side-effect commands on model-invocable skills, `context: fork` bodies with no task, broken relative links, oversized bodies, leftover placeholders, credentials. Output is `PASS`/`FAIL` plus warnings; exit code is CI-friendly.
+The Claude Code profile understands invocation controls, arguments, forked contexts, current boolean aliases, dynamic injection, and the 1,536-character listing cap. The portable profile enforces required `name` and `description` fields, name-directory matching, portable fields, and the 1,024-character description cap.
 
-## Staying current (the anti-rot design)
+For portable releases, also run the upstream validator when available:
 
-[references/claude-code-frontmatter.md](references/claude-code-frontmatter.md) is a dated snapshot of the Claude Code skill spec. The skill **never mutates it mid-generation** — if it's stale, you get a warning and the pinned version. Instead, the [`spec-drift` workflow](.github/workflows/spec-drift.yml) checks the live docs weekly and opens an issue when fields change or the snapshot ages past 90 days, so updates happen as reviewed PRs. Generation stays deterministic; maintenance stays visible.
+```bash
+skills-ref validate path/to/skill-dir
+```
+
+Both profiles check broken links, unscoped tool grants, argument wiring, duplicate frontmatter keys, unsafe dynamic commands, oversized bodies, scaffold placeholders, and credential-shaped strings. Output is `PASS` or `FAIL` with CI-friendly exit codes.
+
+## Tests that prove the checks can fail
+
+The test suite includes paired valid and invalid cases rather than validating only bundled examples:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+Coverage includes both runtime profiles, added and removed spec fields, network failures, boolean aliases, named arguments, gated and ungated mutations, dynamic command injection, links, duplicate keys, and credential detection.
+
+## Staying current
+
+[references/claude-code-frontmatter.md](references/claude-code-frontmatter.md) is a dated snapshot used during deterministic generation. The [`spec-drift` workflow](.github/workflows/spec-drift.yml) fetches the official Markdown source weekly and compares the complete frontmatter field set in both directions. Added fields, removed fields, stale snapshots, fetch failures, and parser failures all require maintainer review.
+
+Field equality does not prove semantic equality. The 90-day snapshot review separately rechecks allowed values, limits, defaults, and lifecycle behavior. That boundary is deliberate and documented instead of hidden behind a green CI check.
+
+Portable rules live in [references/portable-agent-skills.md](references/portable-agent-skills.md), with the upstream `skills-ref` validator remaining authoritative for the open standard.
 
 ## Relationship to other tools
 
-- [claude-code-skills](https://github.com/conorbronsdon/claude-code-skills) — my collection of production skills; this repo is the extracted, hardened home of its `skill-creator`, and the collection's copy tracks this one.
-- Anthropic's official [`skill-creator` plugin](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator) evaluates skill *output quality* (evals, benchmarks, description tuning). This repo designs and validates skill *structure*. They compose — build here, then eval there.
+- [claude-code-skills](https://github.com/conorbronsdon/claude-code-skills) is my collection of production skills. This repository is the hardened home of its skill builder.
+- Anthropic's official [`skill-creator` plugin](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator) evaluates output quality through benchmarks and trigger tuning. This repository handles design and structural validation. Use both for skills worth hardening.
 
 ## Author
 
 Authored by [Conor Bronsdon](https://github.com/conorbronsdon) · [LinkedIn](https://www.linkedin.com/in/conorbronsdon/) · [Chain of Thought podcast](https://chainofthought.show/?utm_source=github&utm_medium=referral&utm_campaign=repo-readme&utm_content=agent-skill-builder)
-
 
 ## Disclaimer
 

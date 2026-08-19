@@ -2,11 +2,14 @@
 
 ## Unreleased
 
-Mechanical guardrail from a second round of Ed Harrod's feedback:
-
-- SKILL.md step 5 gains a pre-write guard: check the target path is clear and confirm before overwriting an existing `SKILL.md`, never clobber silently (`review` mode is for improving one that exists).
-
-(No name-format check: any directory name resolves to a working command, so spelling/casing is cosmetic. The validator flags what breaks or misleads, not style.)
+- Split validation into `claude-code` and `agentskills` profiles, including portable required fields, name-directory matching, and profile-specific description limits.
+- Fix named-argument detection and support current Claude Code boolean aliases plus the `background` field.
+- Reject argument interpolation and mutating commands inside dynamic context injection.
+- Replace the one-way spec check with a bidirectional field comparison; network and parser failures now return a distinct non-zero result.
+- Refresh the Claude Code snapshot and add a pinned portable Agent Skills reference.
+- Add 18 adversarial unit tests with paired positive and negative controls, plus a portable CLI example and CI coverage.
+- Refactor the builder around reference, task, and tool-backed skill shapes; generation now follows the user's requested draft-versus-write scope.
+- Preserve the existing overwrite guard: never replace an installed `SKILL.md` without explicit approval.
 
 ## 0.1.0 — 2026-07-13
 

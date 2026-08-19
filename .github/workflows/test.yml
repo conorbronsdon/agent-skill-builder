@@ -9,5 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate bundled skills
-        run: python3 scripts/validate_skill.py . examples/minimal examples/tool-using
+      - name: Run adversarial unit tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Validate bundled Claude Code skills
+        run: python3 scripts/validate_skill.py --profile claude-code . examples/minimal examples/tool-using
+      - name: Validate portable example
+        run: python3 scripts/validate_skill.py --profile agentskills examples/portable-skill
