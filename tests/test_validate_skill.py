@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts import validate_skill
 from scripts.validate_skill import parse_frontmatter, validate
 
 
@@ -157,6 +158,76 @@ class ValidateSkillTests(unittest.TestCase):
         )
         errors, _ = validate(skill)
         self.assertTrue(any("credential" in error for error in errors))
+
+class SideEffectDetectionTests(unittest.TestCase):
+    """Regressions from a review of the v0.2 hardening. Each of these returned
+    the wrong answer on the branch as submitted."""
+
+    def test_a_backticked_command_is_detected(self):
+        """The single most common way a skill writes a command. Backticks
+        survived the prefix strip, so the anchored match never saw the command
+        and every one of these read as clean."""
+        self.assertEqual(
+            validate_skill.executable_side_effects("run `git push origin main`"),
+            ["git push"],
+        )
+
+    def test_a_mid_sentence_command_is_detected(self):
+        """re.match anchored at line start, so prose around the command hid it."""
+        self.assertEqual(
+            validate_skill.executable_side_effects(
+                "Then run `git push origin main` to publish the release."
+            ),
+            ["git push"],
+        )
+
+    def test_a_bulleted_backticked_command_is_detected(self):
+        self.assertEqual(
+            validate_skill.executable_side_effects("- run `rm -rf build`"),
+            ["rm -r"],
+        )
+
+    def test_a_negation_still_suppresses_its_own_command(self):
+        for body in ("Do not run git push origin main.", "Don't run `rm -rf build`."):
+            self.assertEqual(validate_skill.executable_side_effects(body), [], body)
+
+    def test_a_negation_about_something_else_does_not_suppress(self):
+        """The old check killed the whole line on any negation in it, so
+        "Never skip this: ..." disarmed the command after the colon. The
+        negation governs the clause it is in."""
+        self.assertEqual(
+            validate_skill.executable_side_effects("Never skip this: run git push origin main."),
+            ["git push"],
+        )
+
+
+class GateScopeTests(unittest.TestCase):
+    def test_a_gate_on_an_unrelated_step_does_not_disarm_the_warning(self):
+        """GATE_RE.search(body) was body-global: one "Confirm" anywhere bought a
+        free pass for every ungated command in the document."""
+        body = "1. Confirm the tests pass.\n2. Run git push origin main.\n3. Run rm -rf build."
+        self.assertEqual(validate_skill.ungated_side_effects(body), ["git push", "rm -r"])
+
+    def test_a_gate_in_the_same_step_does_disarm_it(self):
+        body = "1. Confirm with the user, then run git push origin main."
+        self.assertEqual(validate_skill.ungated_side_effects(body), [])
+
+    def test_each_step_is_judged_on_its_own_gate(self):
+        body = (
+            "1. Ask for approval, then run `git push origin main`.\n"
+            "2. Run `rm -rf build`.\n"
+        )
+        self.assertEqual(validate_skill.ungated_side_effects(body), ["rm -r"])
+
+
+class VersionKeyTests(unittest.TestCase):
+    def test_version_is_accepted_under_both_profiles(self):
+        """`version` was in the pre-refactor KNOWN_KEYS. Dropping it turned an
+        optional portable field into a warning under claude-code and a hard
+        error (exit 1) under agentskills, breaking CI for any skill carrying
+        it -- with no changelog entry."""
+        self.assertIn("version", validate_skill.CLAUDE_KEYS)
+        self.assertIn("version", validate_skill.AGENT_SKILLS_KEYS)
 
 
 if __name__ == "__main__":

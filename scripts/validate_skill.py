@@ -20,10 +20,11 @@ CLAUDE_KEYS = {
     "name", "description", "when_to_use", "argument-hint", "arguments",
     "disable-model-invocation", "user-invocable", "allowed-tools",
     "disallowed-tools", "model", "effort", "context", "agent", "background",
-    "hooks", "paths", "shell", "license", "compatibility", "metadata",
+    "hooks", "paths", "shell", "license", "compatibility", "metadata", "version",
 }
 AGENT_SKILLS_KEYS = {
     "name", "description", "license", "compatibility", "metadata", "allowed-tools",
+    "version",
 }
 TRUE_VALUES = {"true", "yes", "on", "1"}
 FALSE_VALUES = {"false", "no", "off", "0"}
@@ -107,18 +108,101 @@ def body_uses_arguments(body, frontmatter):
     )
 
 
-def executable_side_effects(body):
-    """Find command-like side effects while ignoring explanatory/negative prose."""
-    hits = set()
-    for raw_line in body.splitlines():
-        line = raw_line.strip().strip("`")
-        if not line or NEGATION_RE.search(line):
+LIST_ITEM_RE = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s")
+
+
+CLAUSE_BREAK_RE = re.compile(r"[:;.,]|--|—")
+
+
+def _negated_before(text, position):
+    """Does a negation actually apply to the command at `position`?
+
+    Two ways to get this wrong, and the old code took the first: killing the
+    whole line on any negation anywhere in it. That read
+    "Never skip this: run git push origin main." as an instruction NOT to push,
+    so writing the warning away took one word.
+
+    A negation disarms a command only when it precedes it IN THE SAME CLAUSE.
+    "do not run git push" negates the push. "Never skip this: run git push"
+    negates the skipping -- the colon ends the clause the negation governs.
+    """
+    for match in NEGATION_RE.finditer(text):
+        if match.end() > position:
+            continue
+        if CLAUSE_BREAK_RE.search(text[match.end():position]):
+            continue
+        return True
+    return False
+
+
+def side_effect_hits(body):
+    """[(label, line index)] for every command-like side effect in the body.
+
+    Returns positions, not just labels, because the caller has to ask whether
+    THAT command is gated -- a body-wide answer lets one gated step vouch for an
+    ungated one.
+
+    Backticks are flattened before matching. They used to survive the prefix
+    strip, so `run \x60git push origin main\x60` produced the candidate
+    "\x60git push origin main\x60" and no pattern anchored at a backtick ever
+    matched -- the detector missed the single most common way a skill writes a
+    command.
+    """
+    hits = []
+    for index, raw_line in enumerate(body.splitlines()):
+        line = raw_line.replace("`", " ").strip()
+        if not line:
             continue
         commandish = COMMAND_PREFIX.sub("", line)
         for pattern, label in SIDE_EFFECT_PATTERNS:
-            if re.match(pattern, commandish, re.I):
-                hits.add(label)
-    return sorted(hits)
+            match = re.search(pattern, commandish, re.I)
+            if match and not _negated_before(commandish, match.start()):
+                hits.append((label, index))
+    return hits
+
+
+def executable_side_effects(body):
+    """Labels only -- the shape callers and tests already expect."""
+    return sorted({label for label, _ in side_effect_hits(body)})
+
+
+def gate_scopes(lines):
+    """Map each line index to the text of its enclosing list item or paragraph.
+
+    A gate has to cover the step it belongs to, not the whole document.
+    `GATE_RE.search(body)` meant one "Confirm the tests pass" in step 1 silently
+    vouched for an ungated `rm -rf` in step 3 -- so the warning the README
+    advertises could be switched off by a single unrelated word.
+    """
+    scope_of = {}
+    start = 0
+
+    def close(end):
+        text = "\n".join(lines[start:end])
+        for index in range(start, end):
+            scope_of[index] = text
+
+    for index, line in enumerate(lines):
+        if index == start:
+            continue
+        if not line.strip():
+            close(index)
+            start = index + 1
+        elif LIST_ITEM_RE.match(line):
+            close(index)
+            start = index
+    close(len(lines))
+    return scope_of
+
+
+def ungated_side_effects(body):
+    """Labels whose own step carries no confirmation gate."""
+    lines = body.splitlines()
+    scope_of = gate_scopes(lines)
+    return sorted({
+        label for label, index in side_effect_hits(body)
+        if not GATE_RE.search(scope_of.get(index, ""))
+    })
 
 
 def injected_commands(body):
@@ -197,8 +281,8 @@ def validate(skill_dir, profile="claude-code"):
         warnings.append("`allowed-tools` grants unscoped `Bash`; scope the grant to required commands")
 
     disabled = boolean_value(frontmatter.get("disable-model-invocation", "false"))
-    side_effects = executable_side_effects(body)
-    if profile == "claude-code" and disabled is not True and side_effects and not GATE_RE.search(body):
+    side_effects = ungated_side_effects(body)
+    if profile == "claude-code" and disabled is not True and side_effects:
         warnings.append(
             f"model-invocable skill contains ungated side-effect commands ({', '.join(side_effects)})"
         )
