@@ -2,6 +2,8 @@
 
 # agent-skill-builder
 
+> **Maintenance mode.** This project is stable and receives security fixes. New features aren't planned, but issues and pull requests are still welcome.
+
 A Claude Code-first skill builder with portable Agent Skills validation and drift detection that can fail.
 
 [![GitHub stars](https://img.shields.io/github/stars/conorbronsdon/agent-skill-builder?style=social)](https://github.com/conorbronsdon/agent-skill-builder/stargazers)
