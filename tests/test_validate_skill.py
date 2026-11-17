@@ -159,6 +159,21 @@ class ValidateSkillTests(unittest.TestCase):
         errors, _ = validate(skill)
         self.assertTrue(any("credential" in error for error in errors))
 
+    def test_name_directory_mismatch_warning_matches_current_claude_code(self):
+        # Claude Code now registers the frontmatter `name` as the command in a
+        # skill directory (the directory name still works too), so the warning
+        # must not claim the directory alone sets the command name.
+        skill = self.make_skill(
+            "tool-using",
+            "name: commit\ndescription: Commits when the user asks.",
+        )
+        errors, warnings = validate(skill)
+        self.assertEqual(errors, [])
+        mismatch = [w for w in warnings if "differs from directory" in w]
+        self.assertEqual(len(mismatch), 1)
+        self.assertNotIn("uses the directory as the command name", mismatch[0])
+        self.assertIn("portable Agent Skills require them to match", mismatch[0])
+
 class SideEffectDetectionTests(unittest.TestCase):
     """Regressions from a review of the v0.2 hardening. Each of these returned
     the wrong answer on the branch as submitted."""
