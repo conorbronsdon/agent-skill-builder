@@ -44,6 +44,7 @@ Three modes cover the lifecycle:
 ## Install
 
 ```bash
+git clone https://github.com/conorbronsdon/agent-skill-builder
 mkdir -p your-project/.claude/skills
 cp -r agent-skill-builder your-project/.claude/skills/agent-skill-builder
 ```
@@ -52,7 +53,7 @@ Use `~/.claude/skills/` instead to make it available across projects. The builde
 
 ## Runtime-aware validation
 
-The validator has two profiles:
+The validator has two profiles. Run it from the `agent-skill-builder` directory (the clone or the installed copy):
 
 ```bash
 python3 scripts/validate_skill.py --profile claude-code path/to/skill-dir
@@ -66,6 +67,14 @@ For portable releases, also run the upstream validator when available:
 ```bash
 skills-ref validate path/to/skill-dir
 ```
+
+`skills-ref` is the reference validator from [agentskills/agentskills](https://github.com/agentskills/agentskills/tree/main/skills-ref). Installed from source, the command is `skills-ref`:
+
+```bash
+pip install "git+https://github.com/agentskills/agentskills#subdirectory=skills-ref"
+```
+
+The PyPI release (`pip install skills-ref`, 0.1.1) installs the same validator under the command name `agentskills`, so run `agentskills validate path/to/skill-dir` instead.
 
 Both profiles check broken links, unscoped tool grants, argument wiring, duplicate frontmatter keys, unsafe dynamic commands, oversized bodies, scaffold placeholders, and credential-shaped strings. Output is `PASS` or `FAIL` with CI-friendly exit codes.
 
