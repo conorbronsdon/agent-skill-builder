@@ -59,7 +59,7 @@ python3 scripts/validate_skill.py --profile claude-code path/to/skill-dir
 python3 scripts/validate_skill.py --profile agentskills path/to/skill-dir
 ```
 
-The Claude Code profile understands invocation controls, arguments, forked contexts, current boolean aliases, dynamic injection, and the 1,536-character listing cap. The portable profile enforces required `name` and `description` fields, name-directory matching, portable fields, and the 1,024-character description cap.
+The Claude Code profile understands invocation controls, arguments, forked contexts, current boolean aliases, dynamic injection, and the 1,536-character listing cap. The portable profile enforces required `name` and `description` fields, name-directory matching, portable fields, string-to-string `metadata` maps, and the 1,024-character description cap.
 
 For portable releases, also run the upstream validator when available:
 

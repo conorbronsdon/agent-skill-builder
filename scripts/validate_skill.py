@@ -83,6 +83,127 @@ def parse_frontmatter(text):
     return frontmatter, match.group(2), None
 
 
+YAML_NON_STRING_SCALAR = re.compile(
+    r"^(?:[-+]?(?:\d[\d_]*|0x[0-9a-fA-F]+|0o[0-7]+)"
+    r"|[-+]?(?:\d[\d_]*)?\.\d+(?:[eE][-+]?\d+)?|[-+]?\d+(?:\.\d*)?[eE][-+]?\d+"
+    r"|[-+]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN)"
+    r"|true|True|TRUE|false|False|FALSE|yes|Yes|YES|no|No|NO|on|On|ON|off|Off|OFF"
+    r"|null|Null|NULL|~|\d{4}-\d{2}-\d{2})$"
+)
+BLOCK_SCALAR_RE = re.compile(r"^[|>][-+0-9]*$")
+
+
+def _split_flow(inner):
+    """Split the inside of a flow collection on top-level commas."""
+    parts, depth, current = [], 0, ""
+    for char in inner:
+        if char in "[{":
+            depth += 1
+        elif char in "]}":
+            depth -= 1
+        if char == "," and depth == 0:
+            parts.append(current)
+            current = ""
+        else:
+            current += char
+    parts.append(current)
+    return [part.strip() for part in parts if part.strip()]
+
+
+def _metadata_value_issue(key, value, nested_lines):
+    """Classify one `metadata` entry: (structural problem, typed-scalar problem)."""
+    if not value:
+        if not nested_lines:
+            return None, f"`metadata.{key}` is empty, which YAML reads as null; quote it (`\"\"`) to keep a string"
+        kind = "a list" if nested_lines[0].lstrip().startswith("-") else "a nested map"
+        return f"`metadata.{key}` is {kind}; Agent Skills metadata values must be strings", None
+    if value.startswith("["):
+        return f"`metadata.{key}` is a list; Agent Skills metadata values must be strings", None
+    if value.startswith("{"):
+        return f"`metadata.{key}` is a nested map; Agent Skills metadata values must be strings", None
+    if value[0] in "\"'" or BLOCK_SCALAR_RE.match(value):
+        return None, None
+    plain = re.split(r"\s+#", value, maxsplit=1)[0].strip()
+    if YAML_NON_STRING_SCALAR.match(plain):
+        return None, (
+            f"`metadata.{key}` is the unquoted YAML scalar `{plain}`, which YAML loaders read as a "
+            f"non-string; quote it (`{key}: \"{plain}\"`)"
+        )
+    return None, None
+
+
+def metadata_issues(text):
+    """Return (structural, typed) problems with the `metadata` field.
+
+    The Agent Skills spec defines `metadata` as a map from string keys to string
+    values. parse_frontmatter flattens indented lines into one string, so this
+    reads the raw frontmatter block instead. Structural problems (metadata is
+    not a map, or a value is a list or nested map) break the string->string
+    contract outright; typed problems are unquoted scalars such as `3`, `1.0`,
+    or `true` that generic YAML loaders turn into numbers or booleans.
+    """
+    match = re.match(r"^---\n(.*?)\n---", text.removeprefix("\ufeff"), re.S)
+    if not match:
+        return [], []
+    lines = match.group(1).splitlines()
+    start = next((i for i, line in enumerate(lines) if re.match(r"^metadata:", line)), None)
+    if start is None:
+        return [], []
+
+    inline = lines[start].split(":", 1)[1].strip()
+    block = []
+    for line in lines[start + 1:]:
+        if line.strip() and not re.match(r"^\s", line):
+            break
+        if line.strip() and not line.lstrip().startswith("#"):
+            block.append(line)
+
+    structural, typed = [], []
+
+    def record(key, value, nested):
+        problem, typed_problem = _metadata_value_issue(key, value, nested)
+        if problem:
+            structural.append(problem)
+        if typed_problem:
+            typed.append(typed_problem)
+
+    if inline and not inline.startswith("#"):
+        if inline.startswith("{") and inline.endswith("}"):
+            for entry in _split_flow(inline[1:-1]):
+                key, _, value = entry.partition(":")
+                record(key.strip().strip("\"'"), value.strip(), [])
+        elif inline.startswith("["):
+            structural.append("`metadata` is a list; Agent Skills requires a map of string keys to string values")
+        else:
+            structural.append("`metadata` is a scalar; Agent Skills requires a map of string keys to string values")
+        return structural, typed
+
+    if not block:
+        return structural, typed
+    child_indent = len(block[0]) - len(block[0].lstrip())
+    if block[0].lstrip().startswith("-"):
+        structural.append("`metadata` is a list; Agent Skills requires a map of string keys to string values")
+        return structural, typed
+
+    entries = []  # [key, value, nested lines]
+    for line in block:
+        indent = len(line) - len(line.lstrip())
+        if indent > child_indent and entries:
+            entries[-1][2].append(line)
+            continue
+        entry = re.match(r"^\s*(\"[^\"]*\"|'[^']*'|[^:#]+?)\s*:(?:\s+(.*))?$", line)
+        if entry:
+            entries.append([entry.group(1).strip("\"'"), (entry.group(2) or "").strip(), []])
+        elif entries:
+            entries[-1][2].append(line)
+    for key, value, nested in entries:
+        # A plain scalar continued on deeper lines is still one string.
+        if value and nested:
+            continue
+        record(key, value, nested)
+    return structural, typed
+
+
 def boolean_value(value):
     normalized = str(value).strip().lower()
     if normalized in TRUE_VALUES:
@@ -266,6 +387,15 @@ def validate(skill_dir, profile="claude-code"):
                 f"frontmatter name `{name}` differs from directory `{directory.name}`; "
                 "Claude Code registers both as commands; portable Agent Skills require them to match"
             )
+
+    structural, typed = metadata_issues(text)
+    if profile == "agentskills":
+        errors.extend(structural)
+        warnings.extend(typed)
+    else:
+        # Claude Code accepts `metadata` and ignores it, so a non-string value
+        # does not break the skill there; it does break portability.
+        warnings.extend(f"{problem} (not portable)" for problem in structural + typed)
 
     for key in ("disable-model-invocation", "user-invocable", "background"):
         if key in frontmatter and boolean_value(frontmatter[key]) is None:
