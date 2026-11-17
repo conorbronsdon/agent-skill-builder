@@ -235,6 +235,68 @@ class GateScopeTests(unittest.TestCase):
         self.assertEqual(validate_skill.ungated_side_effects(body), ["rm -r"])
 
 
+class MetadataValueTests(unittest.TestCase):
+    """The Agent Skills spec defines `metadata` as a map of string keys to
+    string values. parse_frontmatter flattens nested lines into one string, so
+    lists and nested maps under `metadata` used to pass the agentskills profile."""
+
+    make_skill = ValidateSkillTests.make_skill
+
+    def portable(self, metadata):
+        skill = self.make_skill(
+            "data-review",
+            "name: data-review\ndescription: Reviews data when requested.\n" + metadata,
+        )
+        return validate(skill, "agentskills")
+
+    def test_flow_list_value_fails_portable_profile(self):
+        errors, warnings = self.portable("metadata: {tags: [a, b]}")
+        self.assertEqual(errors, ["`metadata.tags` is a list; Agent Skills metadata values must be strings"])
+        self.assertEqual(warnings, [])
+
+    def test_block_list_value_fails_portable_profile(self):
+        errors, _ = self.portable("metadata:\n  author: example-org\n  tags:\n    - a\n    - b")
+        self.assertEqual(errors, ["`metadata.tags` is a list; Agent Skills metadata values must be strings"])
+
+    def test_nested_map_value_fails_portable_profile(self):
+        errors, _ = self.portable("metadata:\n  owner:\n    team: infra")
+        self.assertEqual(errors, ["`metadata.owner` is a nested map; Agent Skills metadata values must be strings"])
+
+    def test_metadata_that_is_not_a_map_fails_portable_profile(self):
+        errors, _ = self.portable("metadata:\n  - a\n  - b")
+        self.assertEqual(errors, ["`metadata` is a list; Agent Skills requires a map of string keys to string values"])
+        errors, _ = self.portable("metadata: just-a-string")
+        self.assertEqual(errors, ["`metadata` is a scalar; Agent Skills requires a map of string keys to string values"])
+
+    def test_unquoted_number_warns_but_passes(self):
+        errors, warnings = self.portable("metadata:\n  revision: 3")
+        self.assertEqual(errors, [])
+        self.assertEqual(warnings, [
+            "`metadata.revision` is the unquoted YAML scalar `3`, which YAML loaders read as a "
+            "non-string; quote it (`revision: \"3\"`)"
+        ])
+
+    def test_string_values_pass_clean(self):
+        for metadata in (
+            'metadata:\n  author: example-org\n  version: "1.0"',
+            "metadata: {author: example-org, team: 'infra'}",
+            "metadata:\n  summary: >\n    folded text\n    over lines\n  note: a plain scalar\n    continued here",
+        ):
+            errors, warnings = self.portable(metadata)
+            self.assertEqual((errors, warnings), ([], []), metadata)
+
+    def test_claude_code_profile_warns_instead_of_failing(self):
+        skill = self.make_skill(
+            "data-review",
+            "name: data-review\ndescription: Reviews data when requested.\nmetadata: {tags: [a, b]}",
+        )
+        errors, warnings = validate(skill)
+        self.assertEqual(errors, [])
+        self.assertEqual(warnings, [
+            "`metadata.tags` is a list; Agent Skills metadata values must be strings (not portable)"
+        ])
+
+
 class VersionKeyTests(unittest.TestCase):
     def test_version_is_accepted_under_both_profiles(self):
         """`version` was in the pre-refactor KNOWN_KEYS. Dropping it turned an
