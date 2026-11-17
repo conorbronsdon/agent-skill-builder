@@ -264,7 +264,7 @@ def validate(skill_dir, profile="claude-code"):
         if name and name != directory.name:
             warnings.append(
                 f"frontmatter name `{name}` differs from directory `{directory.name}`; "
-                "Claude Code uses the directory as the command name"
+                "Claude Code registers both as commands; portable Agent Skills require them to match"
             )
 
     for key in ("disable-model-invocation", "user-invocable", "background"):

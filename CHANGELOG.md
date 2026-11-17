@@ -15,6 +15,7 @@
 - Pin `MAX_AGE_DAYS` in the spec-freshness tests. `main()` runs the age check before the fetch, so two of them asserted against `date.today()` and would have started failing on 2026-11-16 regardless of the code. The age branch now has its own test.
 - Refactor the builder around reference, task, and tool-backed skill shapes; generation now follows the user's requested draft-versus-write scope.
 - Preserve the existing overwrite guard: never replace an installed `SKILL.md` without explicit approval.
+- 90-day snapshot review (2026-11-17): the field set is unchanged, but `name` now sets the command name in skill directories (the directory name also works) and `user-invocable: false` now also stops `/name` from running the skill. Updated the snapshot rows and the validator's name/directory warning, which claimed the directory alone sets the command.
 
 ## 0.1.0 — 2026-07-13
 

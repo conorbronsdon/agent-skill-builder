@@ -1,19 +1,19 @@
 # Skill Frontmatter & Behavior Reference
 
-**Snapshot:** 2026-08-18, from https://code.claude.com/docs/en/skills (frontmatter reference + invocation control + lifecycle sections).
+**Snapshot:** 2026-11-17, from https://code.claude.com/docs/en/skills (frontmatter reference + invocation control + lifecycle sections).
 **Staleness policy:** this snapshot is pinned. If the date above is >90 days old, warn and continue — do not update it as a side effect of building a skill. The `spec-drift` CI workflow compares the complete upstream field set weekly. The 90-day review also rechecks field semantics, limits, and lifecycle behavior; update via a reviewed PR (or when a user explicitly asks).
 
 ## Frontmatter fields (all optional)
 
 | Field | Use |
 |-------|-----|
-| `name` | Display label in listings only. The command name comes from the skill **directory name** (or the file name for `.claude/commands/` files) — not from this field, except plugin-root SKILL.md. |
+| `name` | Command name. In a personal or project skill directory, `name` sets the command shown in the `/` menu and typed to invoke the skill (unless another command already uses it); the directory name also invokes it. In a plugin skill, `name` replaces the directory as the last command segment (`/my-plugin:<name>`). Not supported in `.claude/commands/` files, whose command comes from the file name. |
 | `description` | What the skill does + when to use it. Claude matches requests against this. Combined with `when_to_use`, truncated at 1,536 chars in the listing; put the key use case first. If omitted, first paragraph of the body is used. |
 | `when_to_use` | Extra trigger phrases/examples, appended to description in the listing (counts toward the same cap). |
 | `argument-hint` | Autocomplete hint, e.g. `[issue-number]` or `[filename] [format]`. |
 | `arguments` | Named positional args for `$name` substitution. Space-separated string or YAML list; names map to positions in order. |
 | `disable-model-invocation` | `true` = only the user can invoke. Removes the description from Claude's context entirely (no ambient cost), prevents preloading into subagents, and (v2.1.196+) blocks scheduled-task invocation. Default `false`. Boolean fields also accept `yes`/`no`, `on`/`off`, and `1`/`0` in current Claude Code. |
-| `user-invocable` | `false` = hidden from the `/` menu; Claude-only background knowledge. Menu visibility only — does not block Skill-tool access. Default `true`. |
+| `user-invocable` | `false` = hidden from the `/` menu, and typing `/name` does not run it; Claude-only background knowledge. Default `true`. |
 | `allowed-tools` | Tools pre-approved (no permission prompt) for the invoking turn. A grant, **not** a restriction — everything else stays callable under normal permissions. Scope tightly: `Bash(git add *)`. Workspace trust does not gate the grant, so review project skills before running Claude Code in a repository. |
 | `disallowed-tools` | Tools *removed* from the pool while active (e.g. `AskUserQuestion` for autonomous loops). Clears on the next user message. |
 | `model` | Model override while active (rest of turn). Same values as `/model`, or `inherit`. |
